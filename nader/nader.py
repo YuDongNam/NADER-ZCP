@@ -40,7 +40,8 @@ class Nader:
                 max_try=5,
                 tag_prefix_base='resnet_trail1',
                 mode='nas-bench',
-                layers_num=20) -> None:
+                layers_num=20,
+                model_name='gpt-5-nano') -> None:
         self.base_block = base_block
         self.database_dir = database_dir
         self.dataset = dataset
@@ -84,6 +85,7 @@ class Nader:
         # develop team
         self.develop = TeamDevelop(
             team_name=develop_team_name,
+            model_name=model_name,
             dataset=dataset,
             use_experience=develop_use_experiecne,
             experience_mode=develop_experience_mode,
@@ -191,7 +193,182 @@ class Nader:
             f.write(json.dumps(costs)+'\n') 
         return costs
 
-    def generate_train_script(self,task_root_dir=None,cluster='l40',batch_path=None):
+    def propose_batch_architectures(self, num=50):
+
+        """
+
+        [Step 1] Generate architectures by calling Research -> Develop pipeline.
+
+        Returns a list of dicts: {'arch': str, 'model_name': str}
+
+        """
+        
+        import gc
+        import torch
+
+        print(f"=== [Generation Phase] Generating {num} architectures... ===")
+
+        candidates = []
+
+        generated_count = 0
+
+        
+
+        # Avoid infinite loops if we can't generate enough
+
+        max_attempts = num * 3
+
+        attempts = 0
+
+        # Memory cleanup interval
+        cleanup_interval = 5
+
+
+
+        while generated_count < num and attempts < max_attempts:
+
+            attempts += 1
+            
+            # Periodic memory cleanup to prevent OOM
+            if attempts % cleanup_interval == 0:
+                gc.collect()
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+
+            try:
+
+                # 1. Research Step: Get Proposal
+
+                if hasattr(self.research, 'run'):
+
+                    research_res = self.research.run()
+
+                else:
+
+                    research_res = self.research() # Calls TeamResearch.__call__
+
+                
+
+                if not research_res or 'proposals' not in research_res or not research_res['proposals']:
+
+                    print(f"[{generated_count}/{num}] No proposals from research agent.")
+
+                    continue
+
+                
+
+                # Take the first proposal
+
+                proposal = research_res['proposals'][0]
+
+                insp_id = proposal.get('inspiration_id')
+
+                
+
+                print(f"[{generated_count+1}/{num}] Proposing with Inspiration ID: {insp_id}...")
+
+
+
+                # 2. Develop Step: Generate Code
+
+                model_info = self.develop(**proposal)
+
+                
+
+                if not model_info or not model_info.get('status', False):
+
+                    print(f"   -> Develop failed (Status: False). Error: {model_info.get('fail')}")
+
+                    if insp_id is not None and insp_id != -1:
+
+                        self.research.set_used(insp_id)
+
+                    continue
+
+
+
+                # 3. Extract Info
+
+                arch_str = model_info.get('base_block')
+
+                model_name = model_info.get('model_name')
+
+                
+
+                if not arch_str:
+
+                    print("   -> No base_block string in develop result.")
+
+                    continue
+
+                if not model_name:
+
+                    print("   -> No model_name in develop result.")
+
+                    continue
+
+
+
+                # 4. Mark Inspiration as Used
+
+                if insp_id is not None and insp_id != -1:
+
+                    self.research.set_used(insp_id)
+
+                
+
+                # Check for duplicates
+
+                # Check against 'arch' in existing candidates
+
+                if any(c['arch'] == arch_str for c in candidates):
+
+                    print("   -> Duplicate architecture generated. Skipping.")
+
+                    continue
+
+
+
+                # Add to candidates
+                candidates.append({
+                    'arch': arch_str,
+                    'model_name': model_name,
+                    'parent': proposal.get('block_name'),
+                    'inspiration_id': insp_id
+                })
+
+                generated_count += 1
+
+                
+
+                clean_arch = arch_str.replace('\n', ' ')[:60]
+
+                print(f"   -> Success! (Model: {model_name})")
+
+                
+
+            except Exception as e:
+
+                print(f"[{generated_count}/{num}] Error in generation loop: {e}")
+
+                import traceback
+
+                traceback.print_exc()
+
+                continue
+
+        
+
+        if generated_count < num:
+
+            print(f"Warning: Only generated {generated_count} architectures out of {num} requested.")
+
+
+
+        return candidates
+
+    
+    def generate_train_script(self,task_root_dir=None,cluster='l40',batch_path=None,target_models=None):
         if not task_root_dir:
             task_root_dir = os.path.join(self.log_dir,'tasks')
         os.makedirs(task_root_dir,exist_ok=True)
@@ -206,16 +383,24 @@ class Nader:
             raise NotImplementedError
         template_all = TRAIN_BATCH
         models = []
-        task_dir = os.path.join(task_root_dir,self.dataset,self.tag_prefix_base)
+        task_dir = os.path.join(task_dir,self.dataset,self.tag_prefix_base) if 'task_dir' in locals() else os.path.join(task_root_dir,self.dataset,self.tag_prefix_base)
         os.makedirs(task_dir,exist_ok=True)
         files = os.listdir(self.train_log_dir)
-        new_dirs = []
-        with open(self.blocks_path,'r') as f:
-            annos = f.readlines()
-            annos = [json.loads(anno) for anno in annos]
-        for anno in annos:
-            if anno['block_name'] not in files:
-                models.append(anno['block_name'])
+        
+        if target_models is not None:
+            # target_models가 주어지면 해당 모델들 중 학습 안 된 것만 필터링
+            models = [m for m in target_models if m not in files]
+        else:
+            # 기존 로직: blocks.jsonl 전체 스캔
+            with open(self.blocks_path,'r') as f:
+                annos = f.readlines()
+                annos = [json.loads(anno) for anno in annos]
+            
+            for anno in annos:
+                if anno['block_name'] not in files:
+                    models.append(anno['block_name'])
+                else:
+                    pass
 
         if len(models)>0:
             for model in models:
@@ -226,7 +411,7 @@ class Nader:
             models_txt = [i+'.sh' for i in models]
             models_txt = ' '.join(models_txt)
             models_txt = f'({models_txt})'
-            txt = template_all.format(task_dir=task_dir,models=models_txt)
+            txt = template_all.replace("{directory}", task_dir).replace("{models}", models_txt)
             with open(batch_path,'w') as f:
                 f.write(txt)
         return models

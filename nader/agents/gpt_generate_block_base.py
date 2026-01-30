@@ -13,7 +13,7 @@ from .agent_expe_retriever_dev import DevelopExperienceRetriever,DevelopExperien
 
 class GPTGenerateBlockBase(BaseAgent):
 
-    def __init__(self, agent_name='', model_name='gpt4o', log_dir=None, use_experience=None, experience_mode='VDB') -> None:
+    def __init__(self, agent_name='', model_name='gpt-5-nano', log_dir=None, use_experience=None, experience_mode='VDB') -> None:
         super().__init__(agent_name,model_name,log_dir)
         self.history = []
         self.use_experience = use_experience

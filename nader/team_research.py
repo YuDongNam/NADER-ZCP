@@ -121,16 +121,22 @@ class TeamResearch:
             block_list = [self.base_block]
         self.mog_graph_manage.update_train_result(self.train_log_dir,tag_prefix=self.tag_prefix)
         insps = self.agent_insp_retriever(num=self.candiate_inspiration_num)
-        if len(block_list)==0 or len(block_list)==1:
-            if len(block_list)==1:
-                assert block_list[0] == self.base_block,block_list
-            block_txt = self.mog_graph_manage.get_block_txt([self.base_block])[0]['base']
+        
+        # ★ 항상 self.base_block을 parent로 사용 (Resume 호환)
+        # 이전 iteration에서 best model이 base_block으로 설정되었으므로, 
+        # annos에서 greedy 선택 대신 base_block을 직접 사용
+        if self.base_block in block_list or len(block_list) <= 1:
+            # base_block이 block_list에 있거나, 첫 iteration인 경우
+            block_txt = self.mog_graph_manage.get_block_txt(self.base_block)['base']
+            block_name = self.base_block
             mode='one'
-            block_name = None
         elif self.mode=='greedy':
+            # base_block이 block_list에 없는 경우 (비정상 상황)
+            # 안전을 위해 annos에서 선택하되, 로그 출력
             its = sorted(self.mog_graph_manage.annos.items(),key=lambda x:x[1]['acc'],reverse=True)
             block_txt = its[0][1]['blocks'][0]
             block_name = its[0][0]
+            print(f"[Warning] base_block '{self.base_block}' not in block_list. Using greedy selection: {block_name}")
             mode='one'
         elif self.mode=='dfs-one':
             it = self.mog_graph_manage.search(mode='dfs')
@@ -140,6 +146,7 @@ class TeamResearch:
         else:
             block_txt = self.mog_graph_manage.get_graph_txt()
             mode='mog'
+            block_name = self.base_block  # fallback
         ps = self.agent_proposer(blocks=block_txt,inspirations=insps,mode=mode)
         for key in ['prompt_tokens','completion_tokens']:
             res[key] = ps[key]

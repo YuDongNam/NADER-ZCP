@@ -371,14 +371,14 @@ class ParserCephImage(Parser):
 
         self.root = root  # dataset:s3://imagenet22k
         if '22k' in root:
-            self.io_backend = 'petrel'
+            self.io_backend = 'disk'
             with open(osp.join(annotation_root, '22k_class_to_idx.json'),
                       'r') as f:
                 self.class_to_idx = json.loads(f.read())
             with open(osp.join(annotation_root, '22k_label.txt'), 'r') as f:
                 self.samples = f.read().splitlines()
         else:
-            self.io_backend = 'petrel'
+            self.io_backend = 'disk'
             self.class_to_idx = None
             with open(osp.join(annotation_root, f'{split}.txt'), 'r') as f:
                 self.samples = f.read().splitlines()

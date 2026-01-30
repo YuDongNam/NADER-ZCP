@@ -1,7 +1,7 @@
 from langchain_community.callbacks import get_openai_callback
-from langchain.chains.llm import LLMChain
-from langchain.prompts import PromptTemplate
-from langchain.output_parsers import PydanticOutputParser
+from langchain_classic.chains.llm import LLMChain
+from langchain_core.prompts import PromptTemplate
+from langchain_core.output_parsers import PydanticOutputParser
 from pydantic import BaseModel, Field
 from typing import *
 

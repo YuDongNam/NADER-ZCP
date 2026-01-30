@@ -131,7 +131,7 @@ class BlockGraphManagement:
         nodes = dag['nodes']
         edges = dag['edges']
         max_iter=1
-        print(nodes)
+        # print(nodes)
         for node,val in nodes.items():
             max_iter=max(max_iter,int(val['iter']))
         max_iter+=1
@@ -202,11 +202,19 @@ class BlockGraphManagement:
         block_list = []
         best_acc = -1
         for block,anno in block2anno.items():
-            print(block)
+            # Removed verbose per-block print to reduce I/O
             if block in files and ((not flush and block not in annos) or flush):
                 res_path = os.path.join(train_log_dir,block,'1',f'{filename}.txt')
+                
+                # Fallback to val_acc.txt if test_acc.txt is missing
+                if not os.path.isfile(res_path) and filename == 'test_acc':
+                     res_path = os.path.join(train_log_dir,block,'1','val_acc.txt')
+                
                 if os.path.isfile(res_path):
-                    res = np.genfromtxt(res_path,delimiter=',',skip_header=1)
+                    try:
+                        res = np.genfromtxt(res_path,delimiter=',',skip_header=1)
+                    except Exception:
+                        continue
                     if len(res.shape)==1:
                         res = np.array([res])
                     # print(f'{block} is training {len(res)}/{50}.')
@@ -217,10 +225,10 @@ class BlockGraphManagement:
                     blocks = load_block(txt_path)
                     assert len(blocks)==3
                     annos[block] = {
-                        'iter':anno['iter'],
-                        "from_block_name": anno['raw_block_name'],
-                        "inspiration_id": anno['inspiration_id'],
-                        "inspiration":self.get_inspiration(anno['inspiration_id']) if 'inspiration' not in anno else anno['inspiration'],
+                        'iter':anno.get('iter', 0), # Default to 0 if 'iter' is missing
+                        "from_block_name": anno.get('raw_block_name', 'unknown'),
+                        "inspiration_id": anno.get('inspiration_id'),
+                        "inspiration":self.get_inspiration(anno.get('inspiration_id')) if 'inspiration' not in anno else anno.get('inspiration'),
                         "acc":acc,
                         "blocks":blocks
                     }
@@ -241,13 +249,24 @@ class BlockGraphManagement:
         if mode=='dfs':
             edges1 = {n:[] for n in annos.keys()}
             edges2 = {n:[] for n in annos.keys()}
+            root = None
             for key,val in annos.items():
                 if val['iter']==0:
                     root = key
                 else:
-                    edges1[val['from_block_name']].append(key)
-                    if val['acc']>annos[val['from_block_name']]['acc']:
-                        edges2[val['from_block_name']].append(key)
+                    parent = val['from_block_name']
+                    if parent in edges1:
+                        edges1[parent].append(key)
+                        if val['acc'] > annos[parent]['acc']:
+                           edges2[parent].append(key)
+                    else:
+                        pass # Ignore orphan blocks or unknown parents to prevent crash
+            
+            # Fallback if no root found
+            if root is None and annos:
+                # Find the block with the minimum iteration
+                root = min(annos, key=lambda k: annos[k]['iter'])
+
             for node in edges2:
                 edges2[node] = sorted(edges2[node],key=lambda x:annos[x]['acc'],reverse=True)
             def dfs(root):

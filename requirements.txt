@@ -1,258 +1,38 @@
-absl-py==2.1.0
-addict==2.4.0
-aiohttp==3.9.5
-aiosignal==1.3.1
-aliyun-python-sdk-core==2.15.1
-aliyun-python-sdk-kms==2.16.2
-annotated-types==0.6.0
-anyio==4.4.0
-anykeystore==0.2
-aoss-python-sdk @ file:///mnt/afs/yangzekang/ModelGen/ModelGen/aoss-python-sdk-2.2.6/dist/aoss-python-sdk-2.2.6.tar.gz#sha256=04f200f57dd42f82032c13b578dbfd550650e2dd7a85333e5d5cff7b52dc4771
-apex==0.9.10.dev0
-appdirs==1.4.4
-asgiref==3.8.1
-asttokens @ file:///home/conda/feedstock_root/build_artifacts/asttokens_1698341106958/work
-async-timeout==4.0.3
-attrs==23.2.0
-backoff==2.2.1
-bcrypt==4.1.3
-beautifulsoup4==4.13.4
-blessed==1.20.0
-boto3==1.34.89
-botocore==1.34.89
-bs4==0.0.2
-build==1.2.1
-cachetools==5.3.3
-certifi==2024.2.2
-cffi==1.16.0
-charset-normalizer==3.3.2
-chroma-hnswlib==0.7.3
-chromadb==0.5.2
-click==8.1.7
-colorama==0.4.6
-coloredlogs==15.0.1
-comm @ file:///home/conda/feedstock_root/build_artifacts/comm_1710320294760/work
-conda-pack==0.8.0
-contourpy==1.2.1
-crcmod==1.7
-cryptacular==1.6.2
-cryptography==42.0.5
-cycler==0.12.1
-dataclasses-json==0.6.6
-debugpy @ file:///home/conda/feedstock_root/build_artifacts/debugpy_1728594112391/work
-decorator @ file:///home/conda/feedstock_root/build_artifacts/decorator_1641555617451/work
-deepspeed==0.14.1
-defusedxml==0.7.1
-Deprecated==1.2.14
-distro==1.9.0
-dnspython==2.6.1
-easydict==1.13
-email_validator==2.1.2
-environs==11.0.0
-exceptiongroup==1.2.1
-executing @ file:///home/conda/feedstock_root/build_artifacts/executing_1725214404607/work
-fastapi==0.111.0
-fastapi-cli==0.0.4
-filelock==3.9.0
-flatbuffers==24.3.25
-fonttools==4.51.0
-frozenlist==1.4.1
-fsspec==2024.3.1
-google-auth==2.30.0
-googleapis-common-protos==1.63.1
-gpustat==1.1.1
-graphviz==0.20.3
-greenlet==3.0.3
-grpcio==1.64.1
-h11==0.14.0
-hjson==3.1.0
-httpcore==1.0.5
-httptools==0.6.1
-httpx==0.27.0
-huggingface-hub==0.22.2
-humanfriendly==10.0
-humanize==4.9.0
-hupper==1.12.1
-idna==3.7
-importlib_metadata==7.1.0
-importlib_resources==6.4.0
-ipykernel @ file:///home/conda/feedstock_root/build_artifacts/ipykernel_1719845459717/work
-ipython @ file:///home/conda/feedstock_root/build_artifacts/ipython_1701831663892/work
-jedi @ file:///home/conda/feedstock_root/build_artifacts/jedi_1696326070614/work
-Jinja2==3.1.2
-jmespath==0.10.0
-jsonpatch==1.33
-jsonpointer==2.4
-jupyter_client @ file:///home/conda/feedstock_root/build_artifacts/jupyter_client_1726610684920/work
-jupyter_core @ file:///home/conda/feedstock_root/build_artifacts/jupyter_core_1727163409502/work
-kiwisolver==1.4.5
-kubernetes==30.1.0
-langchain==0.2.1
-langchain-chroma==0.1.2
-langchain-community==0.2.4
-langchain-core==0.2.3
-langchain-openai==0.1.8
-langchain-text-splitters==0.2.0
-langsmith==0.1.69
-Markdown==3.6
-markdown-it-py==3.0.0
-MarkupSafe==2.1.3
-marshmallow==3.21.3
-matplotlib==3.8.4
-matplotlib-inline @ file:///home/conda/feedstock_root/build_artifacts/matplotlib-inline_1713250518406/work
-mdurl==0.1.2
-mmcv-lite==2.1.0
-mmengine==0.10.4
-mmh3==4.1.0
-model-index==0.1.11
-monotonic==1.6
-mpmath==1.3.0
-multidict==6.0.5
-multiprocessing-logging==0.3.4
-mypy-extensions==1.0.0
-# Editable install with no version control (nader==0.1.0)
--e /mnt/afs3/yangzekang/NADER
-nas-bench-201 @ file:///mnt/afs/yangzekang/ModelGen/NAS-Bench-201/NAS-Bench-201
-nest_asyncio @ file:///home/conda/feedstock_root/build_artifacts/nest-asyncio_1705850609492/work
-networkx==3.2.1
-ninja==1.11.1.1
-numpy==1.24.1
-nvidia-cublas-cu11==11.11.3.6
-nvidia-cuda-cupti-cu11==11.8.87
-nvidia-cuda-nvrtc-cu11==11.8.89
-nvidia-cuda-runtime-cu11==11.8.89
-nvidia-cudnn-cu11==8.7.0.84
-nvidia-cufft-cu11==10.9.0.58
-nvidia-curand-cu11==10.3.0.86
-nvidia-cusolver-cu11==11.4.1.48
-nvidia-cusparse-cu11==11.7.5.86
-nvidia-ml-py==12.555.43
-nvidia-nccl-cu11==2.19.3
-nvidia-nvtx-cu11==11.8.86
-oauthlib==3.2.2
-onnxruntime==1.18.0
-openai==1.33.0
-opencv-python==4.9.0.80
-opendatalab==0.0.10
-openmim==0.3.9
-opentelemetry-api==1.25.0
-opentelemetry-exporter-otlp-proto-common==1.25.0
-opentelemetry-exporter-otlp-proto-grpc==1.25.0
-opentelemetry-instrumentation==0.46b0
-opentelemetry-instrumentation-asgi==0.46b0
-opentelemetry-instrumentation-fastapi==0.46b0
-opentelemetry-proto==1.25.0
-opentelemetry-sdk==1.25.0
-opentelemetry-semantic-conventions==0.46b0
-opentelemetry-util-http==0.46b0
-openxlab==0.0.38
-ordered-set==4.1.0
-orjson==3.10.3
-oss2==2.17.0
-overrides==7.7.0
-packaging==23.2
-pandas==2.2.2
-parso @ file:///home/conda/feedstock_root/build_artifacts/parso_1712320355065/work
-PasteDeploy==3.1.0
-pbkdf2==1.3
-pdfminer.six==20250506
-pdfplumber==0.11.7
-petrel-oss-sdk @ file:///home/yangzekang/petrel-oss-python-sdk-master/dist/petrel-oss-sdk-2.2.5.tar.gz#sha256=2a6486a36f819df95b6cfde0cbae8bcbf38aff7104c82785364064c72f0b5ce8
-pexpect @ file:///home/conda/feedstock_root/build_artifacts/pexpect_1706113125309/work
-pickleshare @ file:///home/conda/feedstock_root/build_artifacts/pickleshare_1602536217715/work
-pillow==10.2.0
-plaster==1.1.2
-plaster-pastedeploy==1.0.1
-platformdirs==4.2.0
-posthog==3.5.0
-prettytable==3.10.0
-prompt_toolkit @ file:///home/conda/feedstock_root/build_artifacts/prompt-toolkit_1727341649933/work
-protobuf==4.25.3
-psutil==5.9.8
-ptyprocess @ file:///home/conda/feedstock_root/build_artifacts/ptyprocess_1609419310487/work/dist/ptyprocess-0.7.0-py2.py3-none-any.whl
-pure_eval @ file:///home/conda/feedstock_root/build_artifacts/pure_eval_1721585709575/work
-py-cpuinfo==9.0.0
-pyasn1==0.6.0
-pyasn1_modules==0.4.0
-pycparser==2.22
-pycryptodome==3.20.0
-pydantic==2.7.0
-pydantic_core==2.18.1
-Pygments==2.17.2
-pygmtools==0.5.3
-PyMuPDF==1.26.3
-pynvml==11.5.0
-pyparsing==3.1.2
-pypdfium2==4.30.0
-PyPika==0.48.9
-pyproject_hooks==1.1.0
-pyramid==2.0.2
-pyramid-mailer==0.15.1
-python-dateutil @ file:///home/conda/feedstock_root/build_artifacts/python-dateutil_1709299778482/work
-python-dotenv==1.0.1
-python-multipart==0.0.9
-python3-openid==3.2.0
-pytz==2023.4
-PyYAML==6.0.1
-pyzmq @ file:///home/conda/feedstock_root/build_artifacts/pyzmq_1728642231864/work
-regex==2024.5.15
-repoze.sendmail==4.4.1
-requests==2.28.2
-requests-oauthlib==2.0.0
-rich==13.4.2
-s3transfer==0.10.1
-safetensors==0.4.3
-scipy==1.13.1
-seaborn==0.13.2
-shellingham==1.5.4
-six @ file:///home/conda/feedstock_root/build_artifacts/six_1620240208055/work
-sniffio==1.3.1
-soupsieve==2.7
-SQLAlchemy==2.0.30
-stack-data @ file:///home/conda/feedstock_root/build_artifacts/stack_data_1669632077133/work
-starlette==0.37.2
-sympy==1.12
-tabulate==0.9.0
-tenacity==8.3.0
-tensorboard==2.17.0
-tensorboard-data-server==0.7.2
-termcolor==2.4.0
-thop==0.1.1.post2209072238
-tiktoken==0.7.0
-timm==0.9.16
-tokenizers==0.19.1
-tomli==2.0.1
-torch==2.2.1+cu118
-torchvision==0.17.1+cu118
-tornado @ file:///home/conda/feedstock_root/build_artifacts/tornado_1724955920300/work
-tqdm==4.65.2
-traitlets @ file:///home/conda/feedstock_root/build_artifacts/traitlets_1713535121073/work
-transaction==4.0
-translationstring==1.4
-triton==2.2.0
-typer==0.12.3
-typing-inspect==0.9.0
-typing_extensions @ file:///home/conda/feedstock_root/build_artifacts/typing_extensions_1717802530399/work
-tzdata==2024.1
-ujson==5.10.0
-urllib3==1.26.18
-uvicorn==0.30.1
-uvloop==0.19.0
-velruse==1.1.1
-venusian==3.1.0
-watchfiles==0.22.0
-wcwidth @ file:///home/conda/feedstock_root/build_artifacts/wcwidth_1704731205417/work
-WebOb==1.8.7
-websocket-client==1.8.0
-websockets==12.0
-Werkzeug==3.0.3
-wrapt==1.16.0
-WTForms==3.1.2
-wtforms-recaptcha==0.3.2
-yacs==0.1.8
-yapf==0.40.2
-yarl==1.9.4
-zipp==3.18.1
-zope.deprecation==5.0
-zope.interface==6.4.post2
-zope.sqlalchemy==3.1
+# --- 1. 기본 수학/데이터 (Numpy 2.0 호환성 문제 방지) ---
+numpy<2.0.0,>=1.24.1
+pandas
+scipy
+matplotlib
+seaborn
+tqdm
+
+# --- 2. 설정 및 유틸리티 ---
+yacs
+easydict
+termcolor
+prettytable
+typing_extensions
+Pillow
+
+# --- 3. AI/Deep Learning 보조 ---
+# (torch는 1단계에서 따로 설치했으므로 생략하거나 주석 처리)
+timm
+thop
+tensorboard
+graphviz
+
+# --- 4. NADER 핵심 (NAS & LLM) ---
+nas-bench-201
+openai>=1.33.0
+langchain>=0.2.1
+langchain-community
+langchain-core
+langchain-classic
+langchain-openai
+langchain-chroma
+chromadb
+tiktoken
+
+# --- 5. OpenMMLab (설치 에러 시 제외 가능) ---
+mmengine
+mmcv-lite>=2.0.0rc4

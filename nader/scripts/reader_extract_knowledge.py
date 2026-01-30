@@ -3,12 +3,12 @@ import json
 import os
 import argparse
 
-from langchain.chat_models import ChatOpenAI
+from langchain_openai import ChatOpenAI
 from langchain_community.callbacks import get_openai_callback
-from langchain.chains.llm import LLMChain
-from langchain.prompts import PromptTemplate
-from langchain.output_parsers import PydanticOutputParser
-from langchain.prompts import ChatMessagePromptTemplate, ChatPromptTemplate
+from langchain_classic.chains.llm import LLMChain
+from langchain_core.prompts import PromptTemplate
+from langchain_core.output_parsers import PydanticOutputParser
+from langchain_core.prompts import ChatMessagePromptTemplate, ChatPromptTemplate
 from pydantic import BaseModel, Field
 
 PROMPT_READER_PAPER = """You are a computer vision research expert.

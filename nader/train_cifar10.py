@@ -22,6 +22,10 @@ else:
 
 from ModelFactory.register import Registers, import_all_modules_for_register2
 from train_utils.log import Log
+from train_utils.config import get_device, get_num_workers, print_environment
+
+# Get device and num_workers from config
+device = get_device()
 
 def calculate_md5(fpath, chunk_size=1024 * 1024):
     md5 = hashlib.md5()
@@ -142,7 +146,8 @@ class ImageNet16(torch.utils.data.Dataset):
                 return False
         return True
     
-def get_dataloader1(mean, std, batch_size=16, num_workers=2, shuffle=True):
+def get_dataloader1(mean, std, batch_size=16, shuffle=True):
+    num_workers = get_num_workers()
     train_transform = transforms.Compose([
         transforms.RandomCrop(32, padding=4),
         transforms.RandomHorizontalFlip(),
@@ -153,14 +158,15 @@ def get_dataloader1(mean, std, batch_size=16, num_workers=2, shuffle=True):
         transforms.ToTensor(),
         transforms.Normalize(mean, std)
     ])
-    train_data = torchvision.datasets.CIFAR10('datasets', train=True, transform=train_transform, download=False)
-    test_data = torchvision.datasets.CIFAR10('datasets', train=False, transform=test_transform, download=False)
+    train_data = torchvision.datasets.CIFAR10('datasets', train=True, transform=train_transform, download=True)
+    test_data = torchvision.datasets.CIFAR10('datasets', train=False, transform=test_transform, download=True)
     assert len(train_data) == 50000 and len(test_data) == 10000
     train_loader = DataLoader(train_data, shuffle=shuffle, num_workers=num_workers, batch_size=batch_size)
     test_loader = DataLoader(test_data, shuffle=False, num_workers=num_workers, batch_size=batch_size)
-    return train_loader,test_loader
+    return train_loader, test_loader
 
-def get_dataloader2(mean, std, path='train_utils/cifar-split.txt', batch_size=16, num_workers=2, shuffle=True):
+def get_dataloader2(mean, std, path='nader/train_utils/cifar-split.txt', batch_size=16, shuffle=True):
+    num_workers = get_num_workers()
     train_transform = transforms.Compose([
         transforms.RandomCrop(32, padding=4),
         transforms.RandomHorizontalFlip(),
@@ -171,23 +177,31 @@ def get_dataloader2(mean, std, path='train_utils/cifar-split.txt', batch_size=16
         transforms.ToTensor(),
         transforms.Normalize(mean, std)
     ])
-    train_data = torchvision.datasets.CIFAR10('datasets', train=True, transform=train_transform, download=False)
+    train_data = torchvision.datasets.CIFAR10('datasets', train=True, transform=train_transform, download=True)
     assert len(train_data) == 50000
     with open(path,'r') as f:
         ds = json.load(f)
         ids_train = [int(x) for x in ds['train'][1]]
         ids_test = [int(x) for x in ds['valid'][1]]
-    train_loader = DataLoader(train_data, sampler=torch.utils.data.sampler.SubsetRandomSampler(ids_train),num_workers=num_workers, batch_size=batch_size)
-    test_loader = DataLoader(train_data, sampler=torch.utils.data.sampler.SubsetRandomSampler(ids_test),num_workers=num_workers, batch_size=batch_size)
-    return train_loader,test_loader
+    train_loader = DataLoader(train_data, sampler=torch.utils.data.sampler.SubsetRandomSampler(ids_train), num_workers=num_workers, batch_size=batch_size)
+    test_loader = DataLoader(train_data, sampler=torch.utils.data.sampler.SubsetRandomSampler(ids_test), num_workers=num_workers, batch_size=batch_size)
+    return train_loader, test_loader
 
-def train_one_epoch(net,loader,optimizer,loss_function,train_scheduler,epoch,log):
+def train_one_epoch(net, loader, optimizer, loss_function, train_scheduler, epoch, log, epoch_timeout=600):
     start = time.time()
     net.train()
+    timeout_triggered = False
+    
     for batch_index, (images, labels) in enumerate(loader):
-        if args.gpu:
-            labels = labels.cuda()
-            images = images.cuda()
+        # Check timeout at the start of each batch
+        elapsed = time.time() - start
+        if elapsed > epoch_timeout:
+            print(f'[Timeout] Epoch {epoch} exceeded {epoch_timeout}s at batch {batch_index}. Stopping...')
+            timeout_triggered = True
+            break
+            
+        labels = labels.to(device)
+        images = images.to(device)
         optimizer.zero_grad()
         outputs = net(images)
         loss = loss_function(outputs, labels)
@@ -203,31 +217,48 @@ def train_one_epoch(net,loader,optimizer,loss_function,train_scheduler,epoch,log
                 total_samples=len(loader.dataset)
             ))
         if (batch_index+1)%10==0:
-            log.update('train_loss',loss.item(), n_iter)
+            log.update('train_loss', loss.item(), n_iter)
+    
     finish = time.time()
-    print('epoch {} training time consumed: {:.2f}s'.format(epoch, finish - start))
+    elapsed = finish - start
+    print('epoch {} training time consumed: {:.2f}s'.format(epoch, elapsed))
+    return elapsed, timeout_triggered  # Return elapsed time and timeout flag
 
 @torch.no_grad()
-def eval_training(net,loader,loss_function,tb=True):
+def eval_training(net, loader, loss_function, tb=True):
     start = time.time()
     net.eval()
-    test_loss = 0.0 # cost function error
-    correct,total = 0.0,0.0
+    test_loss = 0.0
+    correct_1 = 0.0
+    correct_5 = 0.0
+    total = 0.0
     for (images, labels) in loader:
-        if args.gpu:
-            images = images.cuda()
-            labels = labels.cuda()
+        images = images.to(device)
+        labels = labels.to(device)
         outputs = net(images)
         loss = loss_function(outputs, labels)
         test_loss += loss.item()
-        _, preds = outputs.max(1)
+        
+        # Top-k 계산
+        _, pred = outputs.topk(5, 1, largest=True, sorted=True)
+        pred = pred.t()
+        correct = pred.eq(labels.view(1, -1).expand_as(pred))
+        
+        correct_1 += correct[:1].reshape(-1).float().sum(0, keepdim=True)
+        correct_5 += correct[:5].reshape(-1).float().sum(0, keepdim=True)
+        
         total += len(outputs)
-        correct += preds.eq(labels).sum()
+
     finish = time.time()
+    
+    acc1 = correct_1.item() / total
+    acc5 = correct_5.item() / total
+    
     res = {
-        'loss':test_loss / total,
-        'acc':correct.float() / total,
-        'time':finish - start
+        'loss': test_loss / len(loader),
+        'acc': acc1,
+        'acc5': acc5,
+        'time': finish - start
     }
     return res
 
@@ -242,87 +273,161 @@ def set_seed(seed):
     torch.backends.cudnn.benchmark = False
 
 
-def train(train_loader,test_loader,typ='val'):
+def train(train_loader, test_loader, typ='val'):
     net = Registers.model[args.model_name](num_classes=10)
-    net = net.cuda()
+    net = net.to(device)
 
     loss_function = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4,nesterov=True)
+    optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4, nesterov=True)
     train_scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs)
 
-
-    best_epoch,best_acc,best_val_acc,best_val_acc = -1,0.0,-1,0.0    
+    best_epoch, best_acc, best_val_acc = -1, 0.0, 0.0
+    epochs_without_improvement = 0  # For early stopping
+    early_stop_reason = None
+    
     for epoch in range(1, args.epochs + 1):
-        train_one_epoch(net,train_loader,optimizer,loss_function,train_scheduler,epoch,log)
+        epoch_time, timeout_triggered = train_one_epoch(net, train_loader, optimizer, loss_function, train_scheduler, epoch, log, args.epoch_timeout)
+        
+        # Early stopping condition 4: Epoch timeout (triggered inside train_one_epoch)
+        if timeout_triggered:
+            print(f"[Early Stop] Epoch {epoch} timeout triggered inside training loop.")
+            early_stop_reason = 'epoch_timeout'
+            break
+        
         train_scheduler.step(epoch)
-        res = eval_training(net,test_loader,loss_function)
-        print('Test set: Epoch: {}, Average loss: {:.4f}, Accuracy: {:.4f}, Time consumed:{:.2f}s'.format(
+        res = eval_training(net, test_loader, loss_function)
+        current_acc = res['acc'] * 100  # Convert to percentage
+        
+        print('Test set: Epoch: {}, Average loss: {:.4f}, Accuracy: {:.4f}, Top-5: {:.4f}, Time consumed:{:.2f}s'.format(
             epoch,
             res['loss'],
             res['acc'],
+            res['acc5'],
             res['time']
         ))
-        log.update(f'{typ}_acc',epoch,res['acc']*100)
+        log.update(f'{typ}_acc', epoch, current_acc, res['acc5']*100)
+        
+        # Clear GPU cache periodically to prevent memory fragmentation
+        if epoch % 10 == 0:
+            torch.cuda.empty_cache()
+        
+        # Check for improvement
         if best_acc < res['acc']:
             weights_path = os.path.join(log_dir, 'best.pth')
             print('saving weights file to {}'.format(weights_path))
             torch.save(net.state_dict(), weights_path)
             best_acc = res['acc']
             best_epoch = epoch
-        print(f"{typ} best epoch {best_epoch}: acc{best_acc}")
+            epochs_without_improvement = 0  # Reset counter on improvement
+        else:
+            epochs_without_improvement += 1
+        
+        print(f"{typ} best epoch {best_epoch}: acc{best_acc:.4f} (no improvement for {epochs_without_improvement} epochs)")
+        sys.stdout.flush()  # Force flush to prevent I/O buffer issues
+        
+        # Early stopping condition 1: NaN loss
         if math.isnan(res['loss']):
-            return -1,-1
-    return best_epoch,best_acc
+            print(f"[Early Stop] NaN loss detected at epoch {epoch}. Stopping training.")
+            early_stop_reason = 'nan_loss'
+            break
+        
+        # Early stopping condition 2: Minimum accuracy threshold not met
+        if epoch == args.min_acc_epoch and current_acc < args.min_acc_threshold:
+            print(f"[Early Stop] Accuracy {current_acc:.2f}% < {args.min_acc_threshold}% at epoch {epoch}. Model appears untrainable.")
+            early_stop_reason = 'min_acc_not_met'
+            break
+        
+        # Early stopping condition 3: Patience exceeded
+        if epochs_without_improvement >= args.patience:
+            print(f"[Early Stop] No improvement for {args.patience} epochs. Best acc: {best_acc:.4f} at epoch {best_epoch}")
+            early_stop_reason = 'patience_exceeded'
+            break
+    
+    if early_stop_reason:
+        print(f"Training stopped early due to: {early_stop_reason}")
+    else:
+        print(f"Training completed all {args.epochs} epochs.")
+    
+    return best_epoch, best_acc
 
 if __name__ == '__main__':
-    set_seed(888)
+    print_environment()  # Print config settings
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_name', type=str, required=True, help='net type')
+    parser.add_argument('--seed', type=int, default=888, help='seed')
     parser.add_argument('-gpu', type=bool, default=True)
     parser.add_argument('-b', type=int, default=256, help='batch size for dataloader')
     parser.add_argument('--epochs', type=int, default=200)
     parser.add_argument('-lr', type=float, default=0.1, help='initial learning rate')
     parser.add_argument('-resume', action='store_true', default=False, help='resume training')
-    parser.add_argument('--code-dir',default='ModelFactory/codes/nas-bench-201',type=str)
+    parser.add_argument('--code-dir', default='ModelFactory/codes/nas-bench-201', type=str)
     parser.add_argument('--output', type=str, default='output/nas-bench-201-cifar10')
-    parser.add_argument('--tag',default='1', help='tag of experiment')
+    parser.add_argument('--tag', default='1', help='tag of experiment')
+    # Early stopping arguments
+    parser.add_argument('--patience', type=int, default=30, help='Early stopping patience (epochs without improvement)')
+    parser.add_argument('--min-acc-epoch', type=int, default=50, help='Epoch to check minimum accuracy threshold')
+    parser.add_argument('--min-acc-threshold', type=float, default=20.0, help='Minimum accuracy (%) required by min-acc-epoch')
+    parser.add_argument('--epoch-timeout', type=int, default=600, help='Max seconds per epoch before timeout (default: 600s = 10min)')
     args = parser.parse_args()
-
-
+    
+    set_seed(args.seed)
     import_all_modules_for_register2(args.code_dir)
 
-    log_dir = os.path.join(args.output,args.model_name,args.tag)
-    status_path = os.path.join(log_dir,'train_status.txt')
+    log_dir = os.path.join(args.output, args.model_name, args.tag)
+    status_path = os.path.join(log_dir, 'train_status.txt')
+    
+    # 로그 폴더 없으면 만들기
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+        
     log = Log(log_dir)
-    try:
-        #data preprocessing:
-        mean = [x / 255 for x in [125.3, 123.0, 113.9]]
-        std = [x / 255 for x in [63.0, 62.1, 66.7]]
-        training_loader1,test_loader1 = get_dataloader1(
-            mean,
-            std,
-            num_workers=4,
-            batch_size=args.b,
-        )
-        training_loader2,test_loader2 = get_dataloader2(
-            mean,
-            std,
-            num_workers=4,
-            batch_size=args.b,
-        )
-        best_val = train(training_loader2,test_loader2,'val')
-        if best_val[0]==-1:
-            log.update(f'test_acc',1,0)
-            best_test = [-1,-1]
-        else:
-            best_test = train(training_loader1,test_loader1,'test')
 
-        print(f"val best epoch {best_val[0]}: acc{best_val[1]}")
-        print(f"Test best epoch {best_test[0]}: acc{best_test[1]}")
-    except:
-        with open(status_path,'w') as f:
-            f.write('success')
+    # data preprocessing:
+    mean = [x / 255 for x in [125.3, 123.0, 113.9]]
+    std = [x / 255 for x in [63.0, 62.1, 66.7]]
+    
+    # DataLoaders - num_workers from config
+    training_loader1, test_loader1 = get_dataloader1(
+        mean,
+        std,
+        batch_size=args.b,
+    )
+    training_loader2, test_loader2 = get_dataloader2(
+        mean,
+        std,
+        batch_size=args.b,
+    )
+    
+    # 실제 학습 실행 (Val set으로 학습)
+    print("--- Start Training (Val) ---")
+    best_val = train(training_loader2, test_loader2, 'val')
+    
+    # Test set은 학습 없이 best 모델로 평가만 수행
+    print("--- Evaluating on Test Set ---")
+    best_weights_path = os.path.join(log_dir, 'best.pth')
+    if os.path.exists(best_weights_path):
+        # Load best model and evaluate on test set
+        net = Registers.model[args.model_name](num_classes=10)
+        net = net.to(device)
+        net.load_state_dict(torch.load(best_weights_path, map_location=device))
+        loss_function = nn.CrossEntropyLoss()
+        
+        test_res = eval_training(net, test_loader1, loss_function)
+        test_acc = test_res['acc'] * 100
+        test_acc5 = test_res['acc5'] * 100
+        
+        print(f"Test set evaluation: Accuracy: {test_acc:.2f}%, Top-5: {test_acc5:.2f}%")
+        log.update('test_acc', best_val[0], test_acc, test_acc5)
+        
+        best_test = (best_val[0], test_res['acc'])
     else:
-        with open(status_path,'w') as f:
-            f.write('error')
+        print("Warning: best.pth not found. Skipping test evaluation.")
+        best_test = (-1, -1)
+
+    print(f"Val best epoch {best_val[0]}: acc {best_val[1]:.4f}")
+    print(f"Test acc (using best val model): {best_test[1]:.4f}")
+
+    # 정상 종료 시에만 success 기록
+    with open(status_path, 'w') as f:
+        f.write('success')

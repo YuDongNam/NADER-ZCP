@@ -3,12 +3,22 @@
 # Copyright (c) 2022 OpenGVLab
 # Licensed under The MIT License [see LICENSE for details]
 # --------------------------------------------------------
+# Modified for NADER - Easy environment switching (Local WSL / Google Colab)
+# --------------------------------------------------------
 
 import os
 import yaml
+import torch
 from yacs.config import CfgNode as CN
 
 _C = CN()
+
+# =============================================================================
+# ENVIRONMENT SETTINGS (Easy switch between Local WSL and Google Colab)
+# =============================================================================
+# Set USE_GPU = True for Google Colab, False for local WSL/CPU
+_C.USE_GPU = True
+# Device will be set automatically based on USE_GPU and CUDA availability
 
 # Base config files
 _C.BASE = ['']
@@ -18,9 +28,9 @@ _C.BASE = ['']
 # -----------------------------------------------------------------------------
 _C.DATA = CN()
 # Batch size for a single GPU, could be overwritten by command line argument
-_C.DATA.BATCH_SIZE = 128
+_C.DATA.BATCH_SIZE = 32
 # Path to dataset, could be overwritten by command line argument
-_C.DATA.DATA_PATH = 'sensecorea:s3://yangzekang/datasets/classification/imagenet'
+_C.DATA.DATA_PATH = './data'
 # Dataset name
 _C.DATA.DATASET = 'imagenet'
 # Input image size
@@ -35,7 +45,7 @@ _C.DATA.CACHE_MODE = 'no'
 # Pin CPU memory in DataLoader for more efficient (sometimes) transfer to GPU.
 _C.DATA.PIN_MEMORY = True
 # Number of data loading threads
-_C.DATA.NUM_WORKERS = 16
+_C.DATA.NUM_WORKERS = 0
 # Load data to memory
 _C.DATA.IMG_ON_MEMORY = False
 
@@ -297,3 +307,56 @@ def get_config(args):
     update_config(config, args)
 
     return config
+
+
+# =============================================================================
+# HELPER FUNCTIONS for easy access to environment settings
+# =============================================================================
+
+def get_device():
+    """
+    Returns the appropriate device based on USE_GPU setting and CUDA availability.
+    Usage: device = get_device()
+    """
+    if _C.USE_GPU and torch.cuda.is_available():
+        return torch.device("cuda")
+    else:
+        if _C.USE_GPU and not torch.cuda.is_available():
+            print("[WARNING] GPU requested but CUDA not available. Falling back to CPU.")
+        return torch.device("cpu")
+
+def get_num_workers():
+    """
+    Returns the configured number of workers.
+    Usage: num_workers = get_num_workers()
+    """
+    return _C.DATA.NUM_WORKERS
+
+def set_environment(use_gpu=True, num_workers=4):
+    """
+    Convenience function to quickly set environment settings.
+    
+    Args:
+        use_gpu: True for GPU (Colab), False for CPU (local WSL)
+        num_workers: Number of data loading workers (0 for WSL, 4 for Colab)
+    
+    Usage:
+        from train_utils.config import set_environment
+        set_environment(use_gpu=True, num_workers=4)  # Colab
+        set_environment(use_gpu=False, num_workers=0)  # Local WSL
+    """
+    _C.defrost()
+    _C.USE_GPU = use_gpu
+    _C.DATA.NUM_WORKERS = num_workers
+    _C.freeze()
+    print(f"[Config] USE_GPU={use_gpu}, NUM_WORKERS={num_workers}, DEVICE={get_device()}")
+
+def print_environment():
+    """Print current environment configuration."""
+    print("=" * 50)
+    print("NADER Environment Configuration")
+    print("=" * 50)
+    print(f"  USE_GPU: {_C.USE_GPU}")
+    print(f"  DEVICE: {get_device()}")
+    print(f"  NUM_WORKERS: {_C.DATA.NUM_WORKERS}")
+    print("=" * 50)

@@ -9,6 +9,7 @@ from datetime import datetime
 import pdb
 import requests
 import json
+import gc
 
 from .call_llms import call_llm
 
@@ -22,6 +23,9 @@ class BaseAgent():
 
 
     def __call__(self, messages, temperature=0.7):
+        # Force GC to clear previous iterations garbage
+        gc.collect()
+        
         start_time = time.time()
         response = call_llm(messages,temperature=temperature)
         if self.log_dir:

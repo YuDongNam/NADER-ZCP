@@ -19,7 +19,8 @@ import logging
 import pdb
 import re
 
-from ModelFactory.register import Registers, import_one_modules_for_register, import_module_from_path
+# [수정 1] 여기서 에러가 나므로 주석 처리하거나 삭제합니다.
+# from ModelFactory.register import Registers, import_one_modules_for_register, import_module_from_path
 
 class DAGError(Exception):
     def __init__(self, message="This is a custom error."):
@@ -534,6 +535,9 @@ class BlockFactory():
         return nx.is_isomorphic(dag1,dag2,node_match=cmp)
         
     def dag2code(self,dag,block_name='Block',save_file_path='z.py'):
+        # [수정 2] 필요한 함수 안에서 import 합니다.
+        from ModelFactory.register import Registers, import_module_from_path
+
         g = nx.DiGraph()
         g.add_edges_from(dag['edges'])
         tab = '    '
@@ -967,11 +971,29 @@ class {block_name}(nn.Module):
         import_module_from_path(block_name,save_file_path)
 
     def cal_params_flops(self,block_name,input_shape=(4,128,32,32)):
-        model = Registers.block[block_name](input_shape[1],input_shape[1]*2)
-        flops, params = profile(model,(torch.randn(input_shape),),verbose=False)
-        # flops = '{:.2f}'.format(flops/(1000**3))
-        # params = '{:.2f}'.format(params/(1000**2))
-        return params,flops
+        # [수정 3] 여기서도 import 합니다.
+        import gc
+        from ModelFactory.register import Registers
+        
+        try:
+            model = Registers.block[block_name](input_shape[1],input_shape[1]*2)
+            
+            # Safety Check: Parameters
+            param_count = sum(p.numel() for p in model.parameters())
+            if param_count > 200 * 1e6: # 200M Limit
+                raise ValueError(f"Model too large: {param_count/1e6:.2f}M params")
+                
+            flops, params = profile(model,(torch.randn(input_shape),),verbose=False)
+            
+            del model
+            gc.collect()
+            return params,flops
+        except Exception as e:
+            import gc
+            if 'model' in locals():
+                del model
+            gc.collect()
+            raise e
 
     def check_dag(self,dag_nx):
         if not nx.is_directed_acyclic_graph(dag_nx):

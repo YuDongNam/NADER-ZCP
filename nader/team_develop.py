@@ -39,7 +39,7 @@ class TeamDevelop:
 
     def __init__(self,
                  team_name='try-nfb',
-                 model_name='gpt4o',
+                 model_name='gpt-5-nano',
                  dataset='imagenet-1k',
                  use_experience=None,
                  experience_mode='VDB',
@@ -215,8 +215,8 @@ class TeamDevelop:
 
         # save block txt
         block_id = f"{block_name}_p{inspiration_id}"
-        tag = re.sub(f"[\d]*$", '', self.tag_prefix)
-        block_id = re.sub(f"{tag}[\d]*_",'',block_id)
+        tag = re.sub(r"[\d]*$", '', self.tag_prefix)
+        block_id = re.sub(rf"{tag}[\d]*_",'',block_id)
         if self.tag_prefix not in block_id:
             block_id = self.tag_prefix+'_'+block_id
         block_txt = new_block+'\n'+stem_block+'\n'+downsample_block
