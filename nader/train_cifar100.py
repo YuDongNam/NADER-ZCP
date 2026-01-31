@@ -169,7 +169,7 @@ def train(train_loader, test_loader, typ='val'):
             early_stop_reason = 'epoch_timeout'
             break
         
-        train_scheduler.step(epoch)
+        train_scheduler.step()
         res = eval_training(net, test_loader, loss_function)
         current_acc = res['acc'] * 100  # Convert to percentage
         
@@ -227,11 +227,11 @@ def train(train_loader, test_loader, typ='val'):
 
 
 if __name__ == '__main__':
-    set_seed(888)
     print_environment()  # Print config settings
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_name', type=str, required=True, help='net type')
+    parser.add_argument('--seed', type=int, default=888, help='seed')
     parser.add_argument('-gpu', type=bool, default=True)
     parser.add_argument('-b', type=int, default=256, help='batch size for dataloader')
     parser.add_argument('--epochs', type=int, default=200)
@@ -246,7 +246,8 @@ if __name__ == '__main__':
     parser.add_argument('--min-acc-threshold', type=float, default=15.0, help='Minimum accuracy (%) required by min-acc-epoch')
     parser.add_argument('--epoch-timeout', type=int, default=600, help='Max seconds per epoch before timeout (default: 600s = 10min)')
     args = parser.parse_args()
-
+    
+    set_seed(args.seed)
     import_all_modules_for_register2(args.code_dir)
 
     log_dir = os.path.join(args.output, args.model_name, args.tag)

@@ -405,7 +405,7 @@ class Nader:
         if len(models)>0:
             for model in models:
                 path = os.path.join(task_dir,f"{model}.sh")
-                txt = template.format(job_name=model[-10:],model_name=model,code_dir=self.code_dir,train_log_dir=self.train_log_dir)
+                txt = template.format(job_name=model[-10:],model_name=model,code_dir=self.code_dir,train_log_dir=self.train_log_dir,seed=777)
                 with open(path,'w') as f:
                     f.write(txt)
             models_txt = [i+'.sh' for i in models]

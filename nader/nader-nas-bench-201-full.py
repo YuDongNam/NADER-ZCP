@@ -135,7 +135,7 @@ def evaluate_proxy(model_name, proxy_type='synflow', batch_size=32, seed=888):
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
         ])
         dataset = datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
-        loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0, seed=seed)
+        loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0)
         # inputs, targets 로딩 제거 (find_measures 내부에서 처리함)
     except Exception as e:
         print(f"[Proxy Eval Error] Data loading failed: {e}")

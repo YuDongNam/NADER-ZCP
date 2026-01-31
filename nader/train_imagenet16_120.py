@@ -303,7 +303,7 @@ def train(train_loader, test_loader, typ='val'):
             early_stop_reason = 'epoch_timeout'
             break
         
-        train_scheduler.step(epoch)
+        train_scheduler.step()
         res = eval_training(net, test_loader, loss_function)
         current_acc = res['acc'] * 100  # Convert to percentage
         
@@ -361,12 +361,12 @@ def train(train_loader, test_loader, typ='val'):
 
 
 if __name__ == '__main__':
-    set_seed(888)
     print_environment()  # Print config settings
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_name', type=str, required=True, help='net type')
-    parser.add_argument('-gpu', type=bool, default=False)
+    parser.add_argument('--seed', type=int, default=888, help='seed')
+    parser.add_argument('-gpu', type=bool, default=True)
     parser.add_argument('-b', type=int, default=256, help='batch size for dataloader')
     parser.add_argument('--epochs', type=int, default=200)
     parser.add_argument('-lr', type=float, default=0.1, help='initial learning rate')
@@ -383,7 +383,8 @@ if __name__ == '__main__':
     parser.add_argument('--use-amp', action='store_true', default=True, help='Enable FP16 Mixed Precision Training (default: True)')
     parser.add_argument('--no-amp', dest='use_amp', action='store_false', help='Disable Mixed Precision, use FP32')
     args = parser.parse_args()
-
+    
+    set_seed(args.seed)
     import_all_modules_for_register2(args.code_dir)
 
     log_dir = os.path.join(args.output, args.model_name, args.tag)
