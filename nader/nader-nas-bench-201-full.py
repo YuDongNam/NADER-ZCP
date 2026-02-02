@@ -276,7 +276,7 @@ if __name__=='__main__':
     parser.add_argument('--train-log-dir',type=str,default='output/nas-bench-201')
     parser.add_argument('--epochs', type=int, default=200, help='Training epochs per model')
     parser.add_argument('--gen-num', type=int, default=50, help='number of archs to generate')
-    parser.add_argument('--proxy', type=str, required=True, choices=['synflow','snip','grasp','fisher','grad_norm','jacob_cov'], help='proxy type')
+    parser.add_argument('--proxy', type=str, required=True, choices=['synflow','snip','grasp','fisher','grad_norm','jacob_cov','heuristic3','heuristic4'], help='proxy type')
     parser.add_argument('--top-k', type=int, default=5, help='top k selection')
     parser.add_argument('--resume', action='store_true', default=False, help='Resume from last saved state')
     parser.add_argument('--resume-log-dir', type=str, default=None, help='Specific log directory to resume from')

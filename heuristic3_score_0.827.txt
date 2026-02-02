@@ -1,0 +1,33 @@
+import torch
+
+def heuristic_3(model, inputs, targets):
+    bn_max_outputs = []
+    conv_gradient_magnitudes = []
+    
+    def bn_max_hook(module, input, output):
+        if isinstance(module, torch.nn.BatchNorm2d):
+            max_output = output.max().item()
+            bn_max_outputs.append(max_output)
+    
+    def conv_gradient_hook(module, grad_input, grad_output):
+        if isinstance(module, torch.nn.Conv2d):
+            grad_magnitude = grad_output[0].abs().mean().item()
+            conv_gradient_magnitudes.append(grad_magnitude)
+    
+    hooks = []
+    for layer in model.modules():
+        if isinstance(layer, torch.nn.BatchNorm2d):
+            hooks.append(layer.register_forward_hook(bn_max_hook))
+        if isinstance(layer, torch.nn.Conv2d):
+            hooks.append(layer.register_backward_hook(conv_gradient_hook))
+    
+    outputs = model(inputs)
+    loss = torch.nn.functional.cross_entropy(outputs, targets)
+    loss.backward()
+    
+    for hook in hooks:
+        hook.remove()
+    
+    sum_bn_max_output_score = torch.tensor(bn_max_outputs).sum().item()
+    mean_conv_gradient_score = torch.tensor(conv_gradient_magnitudes).mean().item()
+    return sum_bn_max_output_score + mean_conv_gradient_score

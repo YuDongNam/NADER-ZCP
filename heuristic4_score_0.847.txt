@@ -1,0 +1,29 @@
+import torch
+
+def heuristic_4(model, inputs, targets):
+    bn_variances = []
+    first_conv_weight_variance = None
+    
+    def bn_hook(module, input, output):
+        if isinstance(module, torch.nn.BatchNorm2d):
+            variance = torch.var(output).item()
+            bn_variances.append(variance)
+    
+    for layer in model.modules():
+        if isinstance(layer, torch.nn.Conv2d) and first_conv_weight_variance is None:
+            first_conv_weight_variance = torch.var(layer.weight).item()
+    
+    hooks = []
+    for layer in model.modules():
+        if isinstance(layer, torch.nn.BatchNorm2d):
+            hooks.append(layer.register_forward_hook(bn_hook))
+    
+    outputs = model(inputs)
+    loss = torch.nn.functional.cross_entropy(outputs, targets)
+    loss.backward()
+    
+    for hook in hooks:
+        hook.remove()
+    
+    sum_bn_variance_score = torch.tensor(bn_variances).sum().item()
+    return sum_bn_variance_score + (first_conv_weight_variance if first_conv_weight_variance is not None else 0)
