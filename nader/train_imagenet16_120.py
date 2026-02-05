@@ -346,8 +346,8 @@ def train(train_loader, test_loader, typ='val'):
             early_stop_reason = 'min_acc_not_met'
             break
         
-        # Early stopping condition 3: Patience exceeded
-        if epochs_without_improvement >= args.patience:
+        # Early stopping condition 3: Patience exceeded (disabled for full-data mode)
+        if not args.full_data and epochs_without_improvement >= args.patience:
             print(f"[Early Stop] No improvement for {args.patience} epochs. Best acc: {best_acc:.4f} at epoch {best_epoch}")
             early_stop_reason = 'patience_exceeded'
             break
@@ -379,6 +379,7 @@ if __name__ == '__main__':
     parser.add_argument('--min-acc-epoch', type=int, default=50, help='Epoch to check minimum accuracy threshold')
     parser.add_argument('--min-acc-threshold', type=float, default=5.0, help='Minimum accuracy (%) required by min-acc-epoch')
     parser.add_argument('--epoch-timeout', type=int, default=600, help='Max seconds per epoch before timeout (default: 600s = 10min)')
+    parser.add_argument('--full-data', action='store_true', help='Use full training data. For NAS-Bench-201 retrain protocol.')
     # Mixed Precision Training
     parser.add_argument('--use-amp', action='store_true', default=True, help='Enable FP16 Mixed Precision Training (default: True)')
     parser.add_argument('--no-amp', dest='use_amp', action='store_false', help='Disable Mixed Precision, use FP32')
@@ -417,9 +418,15 @@ if __name__ == '__main__':
         batch_size=args.b,
     )
     
-    # 실제 학습 실행 (Val set으로 학습)
-    print("--- Start Training (Val) ---")
-    best_val = train(training_loader, val_loader, 'val')
+    # 실제 학습 실행
+    if args.full_data:
+        # NAS-Bench-201 Retrain: Full training data, test on test set
+        print("--- Start Training (FULL DATA) ---")
+        best_val = train(training_loader, test_loader, 'fulldata')
+    else:
+        # NAS-Bench-201 Search: Val split
+        print("--- Start Training (SPLIT: train / val) ---")
+        best_val = train(training_loader, val_loader, 'val')
     
     # Test set은 학습 없이 best 모델로 평가만 수행
     print("--- Evaluating on Test Set ---")

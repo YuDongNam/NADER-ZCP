@@ -239,8 +239,8 @@ def train(train_loader, test_loader, typ='val'):
             early_stop_reason = 'min_acc_not_met'
             break
         
-        # Early stopping condition 3: Patience exceeded
-        if epochs_without_improvement >= args.patience:
+        # Early stopping condition 3: Patience exceeded (disabled for full-data mode)
+        if not args.full_data and epochs_without_improvement >= args.patience:
             print(f"[Early Stop] No improvement for {args.patience} epochs. Best acc: {best_acc:.4f} at epoch {best_epoch}")
             early_stop_reason = 'patience_exceeded'
             break
@@ -271,6 +271,7 @@ if __name__ == '__main__':
     parser.add_argument('--min-acc-epoch', type=int, default=50, help='Epoch to check minimum accuracy threshold')
     parser.add_argument('--min-acc-threshold', type=float, default=20.0, help='Minimum accuracy (%) required by min-acc-epoch')
     parser.add_argument('--epoch-timeout', type=int, default=600, help='Max seconds per epoch before timeout (default: 600s = 10min)')
+    parser.add_argument('--full-data', action='store_true', help='Use full training data (50k) instead of split (25k/25k). For NAS-Bench-201 retrain protocol.')
     args = parser.parse_args()
     
     set_seed(args.seed)
@@ -301,9 +302,15 @@ if __name__ == '__main__':
         batch_size=args.b,
     )
     
-    # 실제 학습 실행 (Val set으로 학습)
-    print("--- Start Training (Val) ---")
-    best_val = train(training_loader2, test_loader2, 'val')
+    # 실제 학습 실행
+    if args.full_data:
+        # NAS-Bench-201 Retrain: Full 50k training data, test on 10k test set
+        print("--- Start Training (FULL DATA: 50k train / 10k test) ---")
+        best_val = train(training_loader1, test_loader1, 'fulldata')
+    else:
+        # NAS-Bench-201 Search: Split data (25k train / 25k val)
+        print("--- Start Training (SPLIT: 25k train / 25k val) ---")
+        best_val = train(training_loader2, test_loader2, 'val')
     
     # Test set은 학습 없이 best 모델로 평가만 수행
     print("--- Evaluating on Test Set ---")
