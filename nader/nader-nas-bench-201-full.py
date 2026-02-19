@@ -116,41 +116,77 @@ def get_model_instance(model_name, num_classes=10):
         traceback.print_exc()
         return None
 
+# 데이터셋별 설정 (num_classes, transform, 데이터셋 로더)
+_DATASET_CONFIG = {
+    'cifar10': {
+        'num_classes': 10,
+        'transform': transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+        ]),
+        'loader': lambda t: datasets.CIFAR10(root='./data', train=True, download=True, transform=t),
+    },
+    'cifar100': {
+        'num_classes': 100,
+        'transform': transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761))
+        ]),
+        'loader': lambda t: datasets.CIFAR100(root='./data', train=True, download=True, transform=t),
+    },
+    'imagenet16-120': {
+        'num_classes': 120,
+        'transform': transforms.Compose([
+            transforms.Resize(16),
+            transforms.ToTensor(),
+            transforms.Normalize((0.4810, 0.4574, 0.4078), (0.2605, 0.2533, 0.2684))
+        ]),
+        # ImageNet16-120은 별도 다운로드 필요; 없으면 CIFAR-10으로 fallback
+        'loader': None,
+    },
+}
+
 # 프록시 평가 코드
-def evaluate_proxy(model_name, proxy_type='synflow', batch_size=32, seed=888):
+def evaluate_proxy(model_name, proxy_type='synflow', dataset='cifar10', batch_size=32, seed=888):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
-    
-    # 1. 모델 생성
-    model = get_model_instance(model_name)
+
+    cfg = _DATASET_CONFIG.get(dataset, _DATASET_CONFIG['cifar10'])
+    num_classes = cfg['num_classes']
+
+    # 1. 모델 생성 (데이터셋에 맞는 num_classes 사용)
+    model = get_model_instance(model_name, num_classes=num_classes)
     if model is None: return -1.0
     model = model.to(device)
     model.train()
 
-    # 2. 데이터 로드 (1 배치)
+    # 2. 데이터 로드 (1 배치) — 데이터셋별 분기
     try:
-        transform = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-        ])
-        dataset = datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
-        loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0)
-        # inputs, targets 로딩 제거 (find_measures 내부에서 처리함)
+        t = cfg['transform']
+        if cfg['loader'] is not None:
+            ds = cfg['loader'](t)
+        else:
+            # ImageNet16-120: 로컬 데이터가 있으면 사용, 없으면 CIFAR-10으로 fallback
+            img16_root = os.path.join('./data', 'ImageNet16')
+            if os.path.isdir(img16_root):
+                from torchvision.datasets import ImageFolder
+                ds = ImageFolder(root=os.path.join(img16_root, 'train'), transform=t)
+            else:
+                print(f"[Proxy Eval] ImageNet16-120 data not found at {img16_root}, falling back to CIFAR-10 for proxy")
+                fallback = _DATASET_CONFIG['cifar10']
+                ds = fallback['loader'](fallback['transform'])
+        loader = DataLoader(ds, batch_size=batch_size, shuffle=True, num_workers=0)
     except Exception as e:
-        print(f"[Proxy Eval Error] Data loading failed: {e}")
+        print(f"[Proxy Eval Error] Data loading failed for {dataset}: {e}")
         return -1.0
 
     # 3. 점수 계산
     try:
-        # predictive.find_measures 인자 수정
-        # net_orig: 모델
-        # dataload_info: ('random', 배치수, 클래스수)
-        # loss_fn: 손실함수
         measures = predictive.find_measures(
             net_orig=model, 
             dataloader=loader, 
-            dataload_info=('random', 1, 10),
+            dataload_info=('random', 1, num_classes),
             measure_names=[proxy_type], 
             loss_fn=nn.CrossEntropyLoss(), 
             device=device
@@ -647,7 +683,7 @@ if __name__=='__main__':
             
             for item in tqdm(generated_archs, desc=f"Iter {current_iter} - Evaluating"):
                 model_name = item['model_name']
-                score = evaluate_proxy(model_name, args.proxy)
+                score = evaluate_proxy(model_name, args.proxy, dataset=dataset)
                 
                 # NaN/Inf 점수 필터링 (유효한 점수만 추가)
                 if score is not None and not math.isnan(score) and not math.isinf(score) and score > 0:

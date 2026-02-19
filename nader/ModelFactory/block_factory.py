@@ -19,9 +19,6 @@ import logging
 import pdb
 import re
 
-# [수정 1] 여기서 에러가 나므로 주석 처리하거나 삭제합니다.
-# from ModelFactory.register import Registers, import_one_modules_for_register, import_module_from_path
-
 class DAGError(Exception):
     def __init__(self, message="This is a custom error."):
         self.message = message
