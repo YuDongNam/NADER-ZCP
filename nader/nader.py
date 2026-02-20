@@ -83,6 +83,14 @@ class Nader:
         self.logger = logger
 
         # develop team
+        # Determine num_stages based on dataset and mode
+        if mode == 'nas-bench':
+            num_stages = 4 if dataset == 'imagenet-1k' else 3
+        elif mode == 'darts':
+            num_stages = 3
+        else:
+            num_stages = 3
+
         self.develop = TeamDevelop(
             team_name=develop_team_name,
             model_name=model_name,
@@ -96,7 +104,8 @@ class Nader:
             tag_prefix=tag_prefix_base,
             block_txt_dir=self.block_txt_dir,
             cell_mode=mode,
-            layers_num=layers_num
+            layers_num=layers_num,
+            num_stages=num_stages
         )
 
         # research team

@@ -165,6 +165,44 @@ When outputting, you only need to output the block that meet the defined rules, 
 \n###output###
 """
 
+# Stage-aware context descriptions for position-aware block generation
+STAGE_CONTEXTS = {
+    3: {
+        1: "Stage 1 processes high-resolution, low-level features (edges, textures). Lightweight operations such as small convolution kernels (3x3) are preferred to keep computation efficient at high spatial resolution.",
+        2: "Stage 2 processes mid-resolution, mid-level features (patterns, parts). A balance of receptive field expansion and computational cost is effective. Moderate complexity operations work well here.",
+        3: "Stage 3 processes low-resolution, high-level semantic features (objects, scenes). Larger receptive fields, attention mechanisms, or more complex operations can be effective since spatial resolution is already reduced.",
+    },
+    4: {
+        1: "Stage 1 processes the highest-resolution, lowest-level features (edges, textures). Use lightweight operations to minimize computation at large spatial dimensions.",
+        2: "Stage 2 processes high-resolution, low-level features. Slightly more complex operations than Stage 1 are acceptable as resolution has been halved.",
+        3: "Stage 3 processes mid-resolution, mid-level features. This is the deepest stage and benefits from larger receptive fields and richer feature interactions.",
+        4: "Stage 4 processes the lowest-resolution, highest-level semantic features. Complex operations like attention or large kernels are most effective here.",
+    },
+}
+
+prompt_modify_block_staged = f"""###Instruction###
+You are an expert who is proficient in various model structures of deep learning.
+Please make reasonable modifications to the specified block based on the characteristics of the block and the proposal.
+This block will be placed at **Stage {{stage_idx}}/{{num_stages}}** of the model.
+{{stage_context}}
+
+Please ensure that the number of input channels and output channels of the generated block are both C.
+Note that structures in the modified block that unrelated to the proposal should be kept as original as possible.
+{definition_BDAG}
+
+###proposal###
+{{proposal}}
+
+###block###
+{{block}}
+
+{{dev_expe}}
+{{res_expe}}
+###output###
+When outputting, you only need to output the block that meet the defined rules, and do not output other irrelevant information.
+\n###output###
+"""
+
 prompt_modify_block_darts = f"""###Instruction###
 You are an expert who is proficient in various model structures of deep learning.
 Please make reasonable modifications to the specified block based on the characteristics of the block and the proposal.

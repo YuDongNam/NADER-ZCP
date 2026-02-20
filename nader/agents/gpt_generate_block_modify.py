@@ -10,7 +10,7 @@ import pdb
 import requests
 import json
 
-from .prompts import prompt_modify_block,prompt_modify_block_darts,prompt_modify_block2,prompt_develop_experience,prompt_research_experience
+from .prompts import prompt_modify_block,prompt_modify_block_darts,prompt_modify_block2,prompt_develop_experience,prompt_research_experience,prompt_modify_block_staged,STAGE_CONTEXTS
 from .gpt_generate_block_base import GPTGenerateBlockBase
 
 
@@ -29,9 +29,11 @@ class GPTGenerateBlockModify(GPTGenerateBlockBase):
         else:
             raise NotImplementedError
     
-    def run(self, proposal=None, block=None, res_expe=None, feedback=None, temperature=0.1):
+    def run(self, proposal=None, block=None, res_expe=None, feedback=None, temperature=0.1, stage_idx=None, num_stages=None):
         """
         multi round conversation
+        stage_idx: 1-indexed stage position (e.g., 1, 2, 3)
+        num_stages: total number of stages (e.g., 3 for NAS-Bench-201)
         """
         if proposal is not None and block is not None:
             if res_expe:
@@ -45,7 +47,15 @@ class GPTGenerateBlockModify(GPTGenerateBlockBase):
                 dev_expe = prompt_develop_experience.format(experience=expe_s)+"\n"
             else:
                 dev_expe = ""
-            prompt = self.prompt_template.format(proposal=proposal,res_expe=res_expe,dev_expe=dev_expe,block=block)
+            # Use staged prompt if stage info is provided
+            if stage_idx is not None and num_stages is not None:
+                stage_context = STAGE_CONTEXTS.get(num_stages, {}).get(stage_idx, "")
+                prompt = prompt_modify_block_staged.format(
+                    proposal=proposal, res_expe=res_expe, dev_expe=dev_expe, block=block,
+                    stage_idx=stage_idx, num_stages=num_stages, stage_context=stage_context
+                )
+            else:
+                prompt = self.prompt_template.format(proposal=proposal,res_expe=res_expe,dev_expe=dev_expe,block=block)
             self.history = [{'role':'user','content':prompt}]
         elif feedback is not None:
             assert len(self.history)>=1

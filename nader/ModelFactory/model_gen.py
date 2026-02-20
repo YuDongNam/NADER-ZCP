@@ -198,7 +198,11 @@ class ModelGen():
             if self.mode == 'nas-bench':
                 block_stem = Registers.block[stem]
                 block_downsample = Registers.block[downsample]
-                block_base = Registers.block[block]
+                # Support staged blocks: use first block for profiling
+                if isinstance(block, list):
+                    block_base = Registers.block[block[0]]
+                else:
+                    block_base = Registers.block[block]
                 layers = []
                 layers.append(block_stem(3,x1_mid))
                 for width,depth in zip(widths_scale,depths):
@@ -389,20 +393,158 @@ class {model_name}(nn.Module):
         params = '{:.4f}'.format(params/(1000**2))
         return params,flops
 
+    def _generate_one_staged(self,model_name,base_blocks,stem,downsample,save_file_path):
+        """
+        Generate model code with stage-specific base blocks.
+        base_blocks: list of block registry names, one per stage
+        """
+        # Use first block for width/depth profiling
+        try:
+            widths,depths = self.get_width_and_depth(base_blocks,stem,downsample)
+        except Exception as e:
+            if 'group' in str(e):
+                for g in [8,16,32,64,128]:
+                    try:
+                        widths,depths = self.get_width_and_depth(base_blocks,stem,downsample,groups=g)
+                        break
+                    except:
+                        continue
+            else:
+                raise e
+
+        num_stages = len(base_blocks)
+        if self.mode == 'nas-bench':
+            if self.dataset.startswith('nas-bench-201') and num_stages == 3:
+                # Generate block assignment lines
+                block_assigns = '\n'.join(
+                    [f"        block_s{i+1} = Registers.block['{base_blocks[i]}']" for i in range(num_stages)]
+                )
+                model_code = f"""import torch.nn as nn
+from {self.register_path} import Registers
+
+@Registers.model
+class {model_name}(nn.Module):
+
+    def __init__(self,num_classes=100) -> None:
+        super().__init__()
+{block_assigns}
+        stem = Registers.block['{stem}']
+        downsample = Registers.block['{downsample}']
+        self.stem = stem(in_channels=3,out_channels={widths[0]})
+        layers = []
+        for _ in range({depths[0]}):
+            layers.append(block_s1(in_channels={widths[0]},out_channels={widths[0]}))
+        self.layer1 = nn.Sequential(*layers)
+        self.downsample1 = downsample(in_channels={widths[0]},out_channels={widths[1]})
+        layers = []
+        for _ in range({depths[1]}):
+            layers.append(block_s2(in_channels={widths[1]},out_channels={widths[1]}))
+        self.layer2 = nn.Sequential(*layers)
+        self.downsample2 = downsample(in_channels={widths[1]},out_channels={widths[2]})
+        layers = []
+        for _ in range({depths[2]}):
+            layers.append(block_s3(in_channels={widths[2]},out_channels={widths[2]}))
+        self.layer3 = nn.Sequential(*layers)
+        layers = []
+        self.avg_pool = nn.AdaptiveAvgPool2d((1, 1))
+        self.fc = nn.Linear({widths[2]},num_classes)
+
+    def forward(self,x):
+        h = self.stem(x)
+        h = self.layer1(h)
+        h = self.downsample1(h)
+        h = self.layer2(h)
+        h = self.downsample2(h)
+        h = self.layer3(h)
+        h = self.avg_pool(h)
+        h = h.view(h.size(0), -1)
+        h = self.fc(h)
+        return h
+
+"""
+            elif self.dataset == 'imagenet-1k' and num_stages == 4:
+                block_assigns = '\n'.join(
+                    [f"        block_s{i+1} = Registers.block['{base_blocks[i]}']" for i in range(num_stages)]
+                )
+                model_code = f"""import torch.nn as nn
+from {self.register_path} import Registers
+
+@Registers.model
+class {model_name}(nn.Module):
+
+    def __init__(self,num_classes=100) -> None:
+        super().__init__()
+{block_assigns}
+        stem = Registers.block['{stem}']
+        downsample = Registers.block['{downsample}']
+        self.stem = stem(in_channels=3,out_channels={widths[0]})
+        layers = []
+        for _ in range({depths[0]}):
+            layers.append(block_s1(in_channels={widths[0]},out_channels={widths[0]}))
+        self.layer1 = nn.Sequential(*layers)
+        self.downsample1 = downsample(in_channels={widths[0]},out_channels={widths[1]})
+        layers = []
+        for _ in range({depths[1]}):
+            layers.append(block_s2(in_channels={widths[1]},out_channels={widths[1]}))
+        self.layer2 = nn.Sequential(*layers)
+        self.downsample2 = downsample(in_channels={widths[1]},out_channels={widths[2]})
+        layers = []
+        for _ in range({depths[2]}):
+            layers.append(block_s3(in_channels={widths[2]},out_channels={widths[2]}))
+        self.layer3 = nn.Sequential(*layers)
+        self.downsample3 = downsample(in_channels={widths[2]},out_channels={widths[3]})
+        layers = []
+        for _ in range({depths[3]}):
+            layers.append(block_s4(in_channels={widths[3]},out_channels={widths[3]}))
+        self.layer4 = nn.Sequential(*layers)
+        self.avg_pool = nn.AdaptiveAvgPool2d((1, 1))
+        self.fc = nn.Linear({widths[3]},num_classes)
+
+    def forward(self,x):
+        h = self.stem(x)
+        h = self.layer1(h)
+        h = self.downsample1(h)
+        h = self.layer2(h)
+        h = self.downsample2(h)
+        h = self.layer3(h)
+        h = self.downsample3(h)
+        h = self.layer4(h)
+        h = self.avg_pool(h)
+        h = h.view(h.size(0), -1)
+        h = self.fc(h)
+        return h
+
+"""
+            else:
+                raise NotImplementedError(f"Staged generation not supported for {self.dataset} with {num_stages} stages")
+        else:
+            raise NotImplementedError(f"Staged generation not supported for mode={self.mode}")
+
+        with open(save_file_path,'w') as f:
+            f.write(model_code)
+        return widths,depths
+
     def generate_one(self,id,mode='nas-bench'):
         with open(self.pairs_path,'r') as f:
             ds = json.load(f)
         model_name = id.replace('block','model')
         if model_name in self.load_annos():
             return model_name
-        # assert model_name not in Registers.model
-        # if model_name not in Registers.model:
         save_file_path = os.path.join(self.model_dir,f'{model_name}.py')
-        widths,depths = self._generate_one(model_name,ds[id]['base'],ds[id]['stem'],ds[id]['downsample'],save_file_path)
+        block_info = ds[id]
+        base = block_info['base']
+
+        if isinstance(base, list):
+            # Staged: multiple base blocks
+            widths,depths = self._generate_one_staged(model_name,base,block_info['stem'],block_info['downsample'],save_file_path)
+        else:
+            # Legacy: single base block
+            widths,depths = self._generate_one(model_name,base,block_info['stem'],block_info['downsample'],save_file_path)
+
         params,flops = self.cal_params_flops(model_name)
         d = {
-            'blocks':{'base':ds[id]['base'],'stem':ds[id]['stem'],
-            'downsample':ds[id]['downsample']},
+            'blocks':{'base':base,'stem':block_info['stem'],
+            'downsample':block_info['downsample']},
             'widths':widths,
             'depths':depths,
             'params':float(params),
